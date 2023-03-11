@@ -1,27 +1,21 @@
-import uuid
-import logging
-
-from client.client import Client
-from utils.config import Config
+import socket
 
 
-class ClientTcp(Client):
-    def connect(self):
-        logging.info(f"Connecting to server...")
+class ClientTcp:
+    def __init__(self, server_url, server_port):
+        self.__server_url = server_url
+        self.__server_port = server_port
+        self.__socket = self.init_socket()
 
-    def disconnect(self):
-        logging.info(f"Disconnecting from server...")
+    def init_socket(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((self.__server_url, self.__server_port))
+        return sock
 
-    def send(self, message):
-        pass
+    def send(self, data):
+        self.__socket.sendall(data.encode())
+        response = self.__socket.recv(1024)
+        return response.decode()
 
-    def start(self):
-
-        while True:
-            command = input("")
-            if command == "stop":
-                self.stop()
-                break
-
-    def stop(self):
-        pass
+    def close(self):
+        self.__socket.close()
