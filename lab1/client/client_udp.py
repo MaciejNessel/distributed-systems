@@ -4,16 +4,17 @@ import socket
 from utils.config import Config
 
 
-class ClientTcp:
-    def __init__(self, server_url, server_port):
+class ClientUdp:
+    def __init__(self, port, server_url, server_port):
         self.config = Config()
+        self.port = port
         self.__server_url = server_url
         self.__server_port = server_port
         self.__socket = self.init_socket()
 
     def init_socket(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.__server_url, self.__server_port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((self.__server_url, self.port))
         return sock
 
     def show_message(self, data):
@@ -29,18 +30,13 @@ class ClientTcp:
 
     def listen(self):
         while True:
-            data = self.__socket.recv(self.config.max_message_size)
+            data, address = self.__socket.recvfrom(self.config.max_message_size)
             if not data:
                 break
             self.show_message(data)
 
     def send(self, data):
-        self.__socket.sendall(data.encode())
+        self.__socket.sendto(data.encode(), (self.__server_url, self.__server_port))
 
     def close(self):
-        try:
-            self.__socket.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-        finally:
-            self.__socket.close()
+        self.__socket.close()

@@ -1,4 +1,4 @@
-from server.server_tcp import Server
+from server import Server
 
 server = Server()
 server.start()

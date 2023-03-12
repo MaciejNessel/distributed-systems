@@ -9,3 +9,4 @@ class Config:
             config = yaml.load(f, Loader=yaml.FullLoader)
         self.server_url = config["server_url"]
         self.server_port = config["server_port"]
+        self.max_message_size = config["max_message_size"]
