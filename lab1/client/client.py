@@ -3,9 +3,9 @@ import uuid
 import logging
 from enum import Enum
 
-from client_udp import ClientUdp
-from client_tcp import ClientTcp
-from common.message import Message
+from client.client_udp import ClientUdp
+from client.client_tcp import ClientTcp
+from common.message import Message, MessageTypes
 from utils.ascii_loader import AsciiArt
 from utils.config import Config
 
@@ -25,19 +25,16 @@ class Client:
         self.mode = Mode.TCP.value
 
         self.tcp_client = ClientTcp(self.config.server_url, self.config.server_port)
-        self.udp_client = ClientUdp(
-            self.port, self.config.server_url, self.config.server_port
-        )
-        self.is_running = True
-        self.start()
+        self.udp_client = ClientUdp(self.port, self.config.server_url, self.config.server_port)
+        self.is_running = False
 
-    def prepare_message(self, content):
-        message = Message(str(self.id), self.nick, content)
+    def prepare_message(self, message_type: MessageTypes, content=None):
+        message = Message(message_type, str(self.id), self.nick, content)
         message_formatted = message.to_json()
         return message_formatted
 
     def send_message(self, content):
-        message = self.prepare_message(content)
+        message = self.prepare_message(MessageTypes.MESSAGE.value, content)
         if len(message) > self.config.max_message_size:
             logging.error(
                 f"Message size limit exceeded. [{len(message)} / max: {self.config.max_message_size}]  Not sent."
@@ -50,6 +47,16 @@ class Client:
                 self.udp_client.send(message)
             case _:
                 logging.error(f"Invalid mode '{self.mode}'!")
+
+    def register(self):
+        message = self.prepare_message(MessageTypes.REGISTER.value)
+        self.tcp_client.send(message)
+        self.udp_client.send(message)
+
+    def unregister(self):
+        message = self.prepare_message(MessageTypes.UNREGISTER.value)
+        self.tcp_client.send(message)
+        self.udp_client.send(message)
 
     def mode_handler(self, command):
         mode_arg = command.split("--mode ")
@@ -64,9 +71,7 @@ class Client:
             self.mode = new_mode
             logging.info(f"Changed mode to '{new_mode}'")
         else:
-            logging.error(
-                f"Invalid mode '{new_mode}'. Allowed modes are: {valid_modes}"
-            )
+            logging.error(f"Invalid mode '{new_mode}'. Allowed modes are: {valid_modes}")
 
     def file_handler(self, command):
         file_arg = command.split("--file ")
@@ -79,12 +84,15 @@ class Client:
 
     def close_handler(self):
         self.is_running = False
+        self.unregister()
         self.tcp_client.close()
         self.udp_client.close()
 
     def start(self):
-        threading.Thread(target=self.tcp_client.listen, args=()).start()
-        threading.Thread(target=self.udp_client.listen, args=()).start()
+        self.tcp_client.start()
+        self.udp_client.start()
+        self.register()
+        self.is_running = True
 
         while self.is_running:
             command = input(f"[{self.mode}:{self.nick}] ")

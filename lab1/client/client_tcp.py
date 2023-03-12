@@ -1,5 +1,6 @@
 import json
 import socket
+import threading
 
 from utils.config import Config
 
@@ -9,7 +10,13 @@ class ClientTcp:
         self.config = Config()
         self.__server_url = server_url
         self.__server_port = server_port
+        self.__socket = None
+        self.is_running = False
+
+    def start(self):
         self.__socket = self.init_socket()
+        self.is_running = True
+        threading.Thread(target=self.listen, args=()).start()
 
     def init_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,16 +35,20 @@ class ClientTcp:
         )
 
     def listen(self):
-        while True:
-            data = self.__socket.recv(self.config.max_message_size)
-            if not data:
+        while self.is_running:
+            try:
+                data = self.__socket.recv(self.config.max_message_size)
+                if not data:
+                    break
+                self.show_message(data)
+            except:
                 break
-            self.show_message(data)
 
     def send(self, data):
         self.__socket.sendall(data.encode())
 
     def close(self):
+        self.is_running = False
         try:
             self.__socket.shutdown(socket.SHUT_RDWR)
         except OSError:

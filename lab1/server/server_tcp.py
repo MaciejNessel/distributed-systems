@@ -3,14 +3,15 @@ import logging
 import socket
 import threading
 
-from utils.config import Config
+from common.message import MessageTypes
 
 
 class ServerTcp:
-    def __init__(self):
-        self.config = Config()
-        self.host = self.config.server_url
-        self.port = self.config.server_port
+    def __init__(self, config):
+        self.host = config.server_url
+        self.port = config.server_port
+        self.max_message_size = config.max_message_size
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.users = {}
         self.users_lock = threading.Lock()
@@ -18,46 +19,56 @@ class ServerTcp:
     def start(self):
         self.socket.bind((self.host, self.port))
         self.socket.listen()
-        print(f"Server listening on {self.host}:{self.port}")
         while True:
             conn, addr = self.socket.accept()
-            print(f"New client connected from {addr}")
-            client_thread = threading.Thread(
-                target=self.handle_client, args=(conn, addr)
-            )
+            logging.info(f"New client connected from {addr}")
+            client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
             client_thread.start()
 
     def register_user(self, conn, addr):
-        self.users_lock.acquire()
-        self.users[addr] = conn
-        self.users_lock.release()
+        with self.users_lock:
+            self.users[addr] = conn
         logging.info(f"{addr} registered successfully.")
 
     def unregister_user(self, addr):
-        self.users_lock.acquire()
-        self.users.pop(addr)
-        self.users_lock.release()
+        with self.users_lock:
+            self.users.pop(addr)
         logging.info(f"{addr} unregistered successfully.")
 
     def handle_client(self, conn, addr):
         with conn:
-            self.register_user(conn, addr)
             try:
                 while True:
-                    data = conn.recv(self.config.max_message_size)
+                    data = conn.recv(self.max_message_size)
                     if not data:
                         break
-                    self.process_data(data, addr)
+                    self.process_data(data, conn, addr)
             except Exception as e:
-                print(f"An error occurred while processing client request: {e}")
+                logging.error(f"An error occurred while processing client request: {e}")
             finally:
                 conn.close()
-                self.unregister_user(addr)
-                print(f"Client {addr} terminated successfully")
+                logging.info(f"Client {addr} terminated successfully")
 
-    def process_data(self, data, source_addr):
-        self.users_lock.acquire()
-        for addr, conn in self.users.items():
-            if addr != source_addr:
-                conn.sendall(data)
-        self.users_lock.release()
+    def process_data(self, data, conn, source_addr):
+        data_dict = json.loads(data.decode("utf-8"))
+        message_type = data_dict.get("type")
+
+        if message_type == MessageTypes.MESSAGE.value:
+            with self.users_lock:
+                for addr, conn in self.users.items():
+                    if addr != source_addr:
+                        conn.sendall(data)
+        elif message_type == MessageTypes.REGISTER.value:
+            self.register_user(conn, source_addr)
+        elif message_type == MessageTypes.UNREGISTER.value:
+            self.unregister_user(source_addr)
+        else:
+            logging.error("Unsupported message type")
+
+    def close(self):
+        with self.users_lock:
+            for addr, conn in self.users.items():
+                self.unregister_user(addr)
+                conn.close()
+            self.users.clear()
+        logging.info("Server tcp closed successfully.")

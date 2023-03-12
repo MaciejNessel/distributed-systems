@@ -1,5 +1,6 @@
 import json
 import socket
+import threading
 
 from utils.config import Config
 
@@ -10,7 +11,13 @@ class ClientUdp:
         self.port = port
         self.__server_url = server_url
         self.__server_port = server_port
+        self.__socket = None
+        self.is_running = False
+
+    def start(self):
         self.__socket = self.init_socket()
+        self.is_running = True
+        threading.Thread(target=self.listen, args=()).start()
 
     def init_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -29,14 +36,18 @@ class ClientUdp:
         )
 
     def listen(self):
-        while True:
-            data, address = self.__socket.recvfrom(self.config.max_message_size)
-            if not data:
+        while self.is_running:
+            try:
+                data, address = self.__socket.recvfrom(self.config.max_message_size)
+                if not data:
+                    break
+                self.show_message(data)
+            except:
                 break
-            self.show_message(data)
 
     def send(self, data):
         self.__socket.sendto(data.encode(), (self.__server_url, self.__server_port))
 
     def close(self):
+        self.is_running = False
         self.__socket.close()
