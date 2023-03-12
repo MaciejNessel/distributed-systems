@@ -1,19 +1,17 @@
 import logging
 import signal
 import threading
-import time
 
 from server.server_tcp import ServerTcp
 from server.server_udp import ServerUdp
-from utils.config import Config
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, config):
         self.is_running = True
         self.server_tcp = None
         self.server_udp = None
-        self.config = Config()
+        self.config = config
 
     def start(self):
         self.server_tcp = ServerTcp(self.config)
@@ -22,11 +20,13 @@ class Server:
         threading.Thread(target=self.server_tcp.start, daemon=True).start()
         threading.Thread(target=self.server_udp.start, daemon=True).start()
 
-        logging.info(f"Server TCP listening on {self.config.server_url}:{self.config.server_port}")
+        logging.info(f"Server TCP listening on {self.config.server_ip_address}:{self.config.server_port}")
         signal.signal(signal.SIGINT, self.stop)
         while self.is_running:
             command = input("#")
-            if "--close" == command:
+            if command == "":
+                continue
+            elif "--close" == command:
                 self.stop()
             else:
                 logging.error(f"Unsupported command: '{command}'")

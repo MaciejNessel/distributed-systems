@@ -8,8 +8,7 @@ from common.message import MessageTypes
 
 class ServerTcp:
     def __init__(self, config):
-        self.host = config.server_url
-        self.port = config.server_port
+        self.server_address = (config.server_ip_address, config.server_port)
         self.max_message_size = config.max_message_size
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,7 +16,7 @@ class ServerTcp:
         self.users_lock = threading.Lock()
 
     def start(self):
-        self.socket.bind((self.host, self.port))
+        self.socket.bind(self.server_address)
         self.socket.listen()
         while True:
             conn, addr = self.socket.accept()
@@ -54,6 +53,7 @@ class ServerTcp:
         message_type = data_dict.get("type")
 
         if message_type == MessageTypes.MESSAGE.value:
+            logging.info(f"TCP - received message from {source_addr}")
             with self.users_lock:
                 for addr, conn in self.users.items():
                     if addr != source_addr:

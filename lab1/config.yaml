@@ -1,3 +1,8 @@
-server_url: "127.0.0.1"
+server_ip_address: "127.0.0.1"
 server_port: 1234
+
+multicast_group: "224.1.1.1"
+multicast_port: 9009
+
 max_message_size: 1024
+client_default_mode: "T"

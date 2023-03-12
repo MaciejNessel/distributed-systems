@@ -8,7 +8,7 @@ from common.message import MessageTypes
 
 class ServerUdp:
     def __init__(self, config):
-        self.host = config.server_url
+        self.host = config.server_ip_address
         self.port = config.server_port
         self.max_message_size = config.max_message_size
         self.socket = None
@@ -40,6 +40,7 @@ class ServerUdp:
         message_type = data_dict.get("type")
 
         if message_type == MessageTypes.MESSAGE.value:
+            logging.info(f"UDP - received message from {source_addr}")
             with self.users_lock:
                 for addr in self.users:
                     if addr != source_addr:
