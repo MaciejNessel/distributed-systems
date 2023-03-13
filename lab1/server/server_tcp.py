@@ -18,6 +18,9 @@ class ServerTcp:
     def start(self):
         self.socket.bind(self.server_address)
         self.socket.listen()
+        threading.Thread(target=self.listen, daemon=True).start()
+
+    def listen(self):
         while True:
             conn, addr = self.socket.accept()
             logging.info(f"New client connected from {addr}")
@@ -27,12 +30,12 @@ class ServerTcp:
     def register_user(self, conn, addr):
         with self.users_lock:
             self.users[addr] = conn
-        logging.info(f"{addr} registered successfully.")
+        logging.info(f"TCP {addr} registered successfully.")
 
     def unregister_user(self, addr):
         with self.users_lock:
             self.users.pop(addr)
-        logging.info(f"{addr} unregistered successfully.")
+        logging.info(f"TCP {addr} unregistered successfully.")
 
     def handle_client(self, conn, addr):
         with conn:
@@ -42,8 +45,8 @@ class ServerTcp:
                     if not data:
                         break
                     self.process_data(data, conn, addr)
-            except Exception as e:
-                logging.error(f"An error occurred while processing client request: {e}")
+            except socket.error:
+                return
             finally:
                 conn.close()
                 logging.info(f"Client {addr} terminated successfully")
@@ -66,9 +69,7 @@ class ServerTcp:
             logging.error("Unsupported message type")
 
     def close(self):
-        with self.users_lock:
-            for addr, conn in self.users.items():
-                self.unregister_user(addr)
-                conn.close()
-            self.users.clear()
-        logging.info("Server tcp closed successfully.")
+        for addr, conn in self.users.items():
+            conn.close()
+        self.users.clear()
+        logging.info("Server TCP closed successfully.")

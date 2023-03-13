@@ -9,28 +9,25 @@ class ClientUdp:
         self.max_message_size = max_message_size
         self.client_address = client_address
         self.server_address = server_address
-        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.is_running = False
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def start(self):
-        self.__socket.bind(self.client_address)
-        self.is_running = True
+        self.socket.bind(self.client_address)
         threading.Thread(target=self.listen, args=()).start()
 
     def listen(self):
-        while self.is_running:
+        while True:
             try:
-                data, address = self.__socket.recvfrom(self.max_message_size)
+                data, address = self.socket.recvfrom(self.max_message_size)
                 if not data:
                     break
                 message = prepare_message_to_read(data)
                 show_message(message)
-            except:
+            except socket.error:
                 break
 
     def send(self, data):
-        self.__socket.sendto(data, self.server_address)
+        self.socket.sendto(data, self.server_address)
 
-    def close(self):
-        self.is_running = False
-        self.__socket.close()
+    def stop(self):
+        self.socket.close()

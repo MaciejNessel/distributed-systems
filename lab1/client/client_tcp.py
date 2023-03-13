@@ -9,33 +9,27 @@ class ClientTcp:
         self.max_message_size = max_message_size
         self.client_address = client_address
         self.server_address = server_address
-
-        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.is_running = False
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def start(self):
-        self.__socket.bind(self.client_address)
-        self.__socket.connect(self.server_address)
-        self.is_running = True
+        self.socket.bind(self.client_address)
+        self.socket.connect(self.server_address)
         threading.Thread(target=self.listen, args=()).start()
 
     def listen(self):
-        while self.is_running:
+        while True:
             try:
-                data = self.__socket.recv(self.max_message_size)
+                data = self.socket.recv(self.max_message_size)
                 if not data:
                     break
                 message = prepare_message_to_read(data)
                 show_message(message)
-            except:
+            except socket.error:
                 break
 
     def send(self, data):
-        self.__socket.sendall(data)
+        self.socket.sendall(data)
 
-    def close(self):
-        self.is_running = False
-
-        # self.__socket.shutdown(socket.SHUT_RDWR)
-        self.__socket.close()
+    def stop(self):
+        # self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()

@@ -1,3 +1,5 @@
+import signal
+import sys
 import uuid
 import logging
 
@@ -12,20 +14,18 @@ from utils.command import get_command_attr
 
 class Client:
     def __init__(self, nick, port, config):
+        self.config = config
+
         self.nick = nick
         self.port = port
         self.id = uuid.uuid4()
-
-        self.config = config
         self.mode = self.config.client_default_mode
 
         server_address = (self.config.server_ip_address, self.config.server_port)
-        client_addres = (self.config.server_ip_address, self.port)
-        self.tcp_client = ClientTcp(client_addres, server_address, self.config.max_message_size)
-        self.udp_client = ClientUdp(client_addres, server_address, self.config.max_message_size)
-
+        client_address = (self.config.server_ip_address, self.port)
+        self.tcp_client = ClientTcp(client_address, server_address, self.config.max_message_size)
+        self.udp_client = ClientUdp(client_address, server_address, self.config.max_message_size)
         self.multicast_client = ClientMulticast(self.config.multicast_group, self.config.multicast_port, self.config.max_message_size)
-        self.is_running = False
 
     def prepare_message(self, message_type: MessageTypes, content=None):
         message = Message(message_type, str(self.id), self.nick, content)
@@ -83,15 +83,12 @@ class Client:
         self.multicast_client.start()
 
         self.register()
-        self.is_running = True
 
-        while self.is_running:
+        signal.signal(signal.SIGINT, self.stop)
+        while True:
             command = input(f"[{self.mode}:{self.nick}] ")
             if "--mode" in command:
                 self.mode_handler(command)
-            elif "--close" in command:
-                self.close_handler()
-                break
             elif "--file" in command:
                 message = self.file_handler(command)
                 if message:
@@ -101,9 +98,9 @@ class Client:
             elif len(command):
                 self.send_message(command)
 
-    def close_handler(self):
-        self.is_running = False
+    def stop(self, sig, frame):
         self.unregister()
-        self.tcp_client.close()
-        self.udp_client.close()
-        exit(0)
+        self.tcp_client.stop()
+        self.udp_client.stop()
+        self.multicast_client.stop()
+        sys.exit(0)

@@ -11,9 +11,11 @@ class ServerUdp:
         self.host = config.server_ip_address
         self.port = config.server_port
         self.max_message_size = config.max_message_size
-        self.socket = None
+
         self.users: set = set()
         self.users_lock = threading.Lock()
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def register_user(self, addr):
         with self.users_lock:
@@ -26,11 +28,16 @@ class ServerUdp:
         logging.info(f"{addr} unregistered successfully.")
 
     def start(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind((self.host, self.port))
+        threading.Thread(target=self.listen, daemon=True).start()
+
+    def listen(self):
         while True:
-            data, addr = self.socket.recvfrom(self.max_message_size)
-            self.process_data(data, addr)
+            try:
+                data, addr = self.socket.recvfrom(self.max_message_size)
+                self.process_data(data, addr)
+            except socket.error:
+                break
 
     def send(self, data, addr):
         self.socket.sendto(data, addr)
@@ -53,4 +60,5 @@ class ServerUdp:
             logging.error("Unsupported message type")
 
     def close(self):
-        pass
+        self.socket.close()
+        logging.info("Server UDP closed successfully.")
