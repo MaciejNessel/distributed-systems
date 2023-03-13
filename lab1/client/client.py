@@ -22,7 +22,7 @@ class Client:
         self.mode = self.config.client_default_mode
 
         server_address = (self.config.server_ip_address, self.config.server_port)
-        client_address = (self.config.server_ip_address, self.port)
+        client_address = (self.config.client_ip_address, self.port)
         self.tcp_client = ClientTcp(client_address, server_address, self.config.max_message_size)
         self.udp_client = ClientUdp(client_address, server_address, self.config.max_message_size)
         self.multicast_client = ClientMulticast(self.config.multicast_group, self.config.multicast_port, self.config.max_message_size)
